@@ -1,0 +1,25 @@
+import { ReactNode } from "react";
+import TopBar from "./TopBar";
+import Header from "./Header";
+import MegaMenu from "./MegaMenu";
+import Footer from "./Footer";
+
+interface LayoutProps {
+  children: ReactNode;
+}
+
+const Layout = ({ children }: LayoutProps) => {
+  return (
+    <div className="min-h-screen flex flex-col">
+      <TopBar />
+      <Header />
+      <MegaMenu />
+      <main className="flex-1">
+        {children}
+      </main>
+      <Footer />
+    </div>
+  );
+};
+
+export default Layout;
