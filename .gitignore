@@ -2,7 +2,6 @@
 bin/
 build/
 dist/
-k4s
 *.exe
 *.exe~
 *.dll
