@@ -57,12 +57,11 @@ func (h *HelpScreen) View() string {
 
 	sectionStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(colorSecondary).
-		MarginTop(1)
+		Foreground(colorSecondary)
 
 	keyStyle := lipgloss.NewStyle().
 		Foreground(colorWarning).
-		Width(12)
+		Width(10)
 
 	descStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#FFFFFF"))
@@ -71,58 +70,71 @@ func (h *HelpScreen) View() string {
 		Foreground(colorMuted).
 		Italic(true)
 
-	var content strings.Builder
+	// Column 1: Global + Navigation
+	var col1 strings.Builder
+	col1.WriteString(sectionStyle.Render("Global"))
+	col1.WriteString("\n")
+	col1.WriteString(renderShortcut(keyStyle, descStyle, "?", "Help"))
+	col1.WriteString(renderShortcut(keyStyle, descStyle, "q", "Quit"))
+	col1.WriteString(renderShortcut(keyStyle, descStyle, "Esc", "Back"))
+	col1.WriteString(renderShortcut(keyStyle, descStyle, "r", "Refresh"))
+	col1.WriteString("\n")
+	col1.WriteString(sectionStyle.Render("Navigation"))
+	col1.WriteString("\n")
+	col1.WriteString(renderShortcut(keyStyle, descStyle, "↑/↓", "Move"))
+	col1.WriteString(renderShortcut(keyStyle, descStyle, "Enter", "Select"))
+	col1.WriteString(renderShortcut(keyStyle, descStyle, "/", "Filter"))
+	col1.WriteString(renderShortcut(keyStyle, descStyle, "1-5", "Views"))
+	col1.WriteString(renderShortcut(keyStyle, descStyle, "9", "SSH"))
 
+	// Column 2: Pod + Deployment actions
+	var col2 strings.Builder
+	col2.WriteString(sectionStyle.Render("Pods"))
+	col2.WriteString("\n")
+	col2.WriteString(renderShortcut(keyStyle, descStyle, "l", "Logs"))
+	col2.WriteString(renderShortcut(keyStyle, descStyle, "d", "Delete"))
+	col2.WriteString(renderShortcut(keyStyle, descStyle, "R", "Restart"))
+	col2.WriteString(renderShortcut(keyStyle, descStyle, "m", "Metrics"))
+	col2.WriteString("\n")
+	col2.WriteString(sectionStyle.Render("Deployments"))
+	col2.WriteString("\n")
+	col2.WriteString(renderShortcut(keyStyle, descStyle, "s", "Scale"))
+	col2.WriteString(renderShortcut(keyStyle, descStyle, "d", "Delete"))
+	col2.WriteString(renderShortcut(keyStyle, descStyle, "R", "Restart"))
+
+	// Column 3: Events + Logs viewer
+	var col3 strings.Builder
+	col3.WriteString(sectionStyle.Render("Events"))
+	col3.WriteString("\n")
+	col3.WriteString(renderShortcut(keyStyle, descStyle, "f", "Follow"))
+	col3.WriteString(renderShortcut(keyStyle, descStyle, "w", "Warnings"))
+	col3.WriteString(renderShortcut(keyStyle, descStyle, "k", "Kind"))
+	col3.WriteString("\n")
+	col3.WriteString(sectionStyle.Render("Logs"))
+	col3.WriteString("\n")
+	col3.WriteString(renderShortcut(keyStyle, descStyle, "f", "Follow"))
+	col3.WriteString(renderShortcut(keyStyle, descStyle, "t", "Timestamps"))
+	col3.WriteString(renderShortcut(keyStyle, descStyle, "c", "Container"))
+	col3.WriteString(renderShortcut(keyStyle, descStyle, "g/G", "Top/Bottom"))
+
+	// Column style
+	colStyle := lipgloss.NewStyle().
+		Padding(0, 2).
+		Width(28)
+
+	// Join columns horizontally
+	columns := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		colStyle.Render(col1.String()),
+		colStyle.Render(col2.String()),
+		colStyle.Render(col3.String()),
+	)
+
+	// Build final content
+	var content strings.Builder
 	content.WriteString(titleStyle.Render("k4s Keyboard Shortcuts"))
 	content.WriteString("\n")
-
-	// Global shortcuts
-	content.WriteString(sectionStyle.Render("Global"))
-	content.WriteString("\n")
-	content.WriteString(renderShortcut(keyStyle, descStyle, "?", "Toggle this help screen"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "q", "Quit application"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "Ctrl+C", "Force quit"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "Esc", "Go back / Cancel"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "r", "Refresh current view"))
-
-	// Navigation
-	content.WriteString(sectionStyle.Render("Navigation"))
-	content.WriteString("\n")
-	content.WriteString(renderShortcut(keyStyle, descStyle, "↑/k", "Move up"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "↓/j", "Move down"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "Enter", "Select / Open"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "/", "Filter list"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "0", "Go to Namespaces"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "1", "Go to Pods"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "9", "Go to SSH Hosts"))
-
-	// Pod actions
-	content.WriteString(sectionStyle.Render("Pod Actions"))
-	content.WriteString("\n")
-	content.WriteString(renderShortcut(keyStyle, descStyle, "l", "View logs"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "d", "Delete pod"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "R", "Restart pod (Shift+R)"))
-
-	// Log viewer
-	content.WriteString(sectionStyle.Render("Log Viewer"))
-	content.WriteString("\n")
-	content.WriteString(renderShortcut(keyStyle, descStyle, "f", "Toggle follow mode"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "t", "Toggle timestamps"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "/", "Search in logs"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "n", "Next search match"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "N", "Previous search match"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "g", "Go to top"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "G", "Go to bottom"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "c", "Change container"))
-
-	// Scrolling
-	content.WriteString(sectionStyle.Render("Scrolling"))
-	content.WriteString("\n")
-	content.WriteString(renderShortcut(keyStyle, descStyle, "↑/↓", "Scroll line by line"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "PgUp/PgDn", "Scroll page"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "Home/g", "Go to top"))
-	content.WriteString(renderShortcut(keyStyle, descStyle, "End/G", "Go to bottom"))
-
+	content.WriteString(columns)
 	content.WriteString("\n")
 	content.WriteString(mutedStyle.Render("Press ? or Esc to close"))
 
@@ -130,8 +142,7 @@ func (h *HelpScreen) View() string {
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(colorPrimary).
-		Padding(1, 2).
-		Width(50)
+		Padding(1, 2)
 
 	return boxStyle.Render(content.String())
 }

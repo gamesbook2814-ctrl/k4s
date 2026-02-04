@@ -20,7 +20,9 @@ func (i podItem) FilterValue() string { return i.pod.Name }
 
 // podDelegate renders pod list items
 type podDelegate struct {
-	styles Styles
+	styles         Styles
+	metricsEnabled bool
+	metrics        map[string]domain.PodMetrics
 }
 
 func (d podDelegate) Height() int                             { return 1 }
@@ -78,28 +80,59 @@ func (d podDelegate) Render(w io.Writer, m list.Model, index int, listItem list.
 	restartsStyled := restartsStyle.Render(restartsPadded)
 	ageStyled := lipgloss.NewStyle().Foreground(colorMuted).Render(agePadded)
 
+	// Metrics columns (CPU and Memory) if enabled
+	var cpuStyled, memStyled string
+	if d.metricsEnabled {
+		cpuStr := "-"
+		memStr := "-"
+		if d.metrics != nil {
+			if metrics, ok := d.metrics[pod.Name]; ok {
+				cpuStr = metrics.CPUUsage
+				memStr = metrics.MemoryUsage
+			}
+		}
+		cpuPadded := fmt.Sprintf("%-8s", cpuStr)
+		memPadded := fmt.Sprintf("%-10s", memStr)
+		cpuStyled = lipgloss.NewStyle().Foreground(colorSecondary).Render(cpuPadded)
+		memStyled = lipgloss.NewStyle().Foreground(colorSecondary).Render(memPadded)
+	}
+
 	// Cursor and selection styling
 	var line string
 	if index == m.Index() {
 		nameStyle := lipgloss.NewStyle().Bold(true).Foreground(colorPrimary)
-		line = fmt.Sprintf("▸ %s %s %s %s %s",
-			nameStyle.Render(namePadded), readyPadded, statusStyled, restartsStyled, ageStyled)
+		if d.metricsEnabled {
+			line = fmt.Sprintf("▸ %s %s %s %s %s %s %s",
+				nameStyle.Render(namePadded), readyPadded, statusStyled, restartsPadded, cpuStyled, memStyled, ageStyled)
+		} else {
+			line = fmt.Sprintf("▸ %s %s %s %s %s",
+				nameStyle.Render(namePadded), readyPadded, statusStyled, restartsStyled, ageStyled)
+		}
 	} else {
-		line = fmt.Sprintf("  %s %s %s %s %s",
-			namePadded, readyPadded, statusStyled, restartsStyled, ageStyled)
+		if d.metricsEnabled {
+			line = fmt.Sprintf("  %s %s %s %s %s %s %s",
+				namePadded, readyPadded, statusStyled, restartsPadded, cpuStyled, memStyled, ageStyled)
+		} else {
+			line = fmt.Sprintf("  %s %s %s %s %s",
+				namePadded, readyPadded, statusStyled, restartsStyled, ageStyled)
+		}
 	}
 
 	fmt.Fprint(w, line)
 }
 
 // newPodList creates a list model for pods
-func newPodList(pods []domain.Pod, width, height int, styles Styles) list.Model {
+func newPodList(pods []domain.Pod, width, height int, styles Styles, metricsEnabled bool, metrics map[string]domain.PodMetrics) list.Model {
 	items := make([]list.Item, len(pods))
 	for i, pod := range pods {
 		items[i] = podItem{pod: pod}
 	}
 
-	delegate := podDelegate{styles: styles}
+	delegate := podDelegate{
+		styles:         styles,
+		metricsEnabled: metricsEnabled,
+		metrics:        metrics,
+	}
 	l := list.New(items, delegate, width, height)
 	l.SetShowTitle(false)      // We render our own title
 	l.SetShowStatusBar(false)  // We render our own status

@@ -14,6 +14,8 @@ const (
 	ConfirmActionNone ConfirmAction = iota
 	ConfirmActionDeletePod
 	ConfirmActionRestartPod
+	ConfirmActionDeleteDeployment
+	ConfirmActionRestartDeployment
 )
 
 // ConfirmDialog is a confirmation dialog model
@@ -48,6 +50,12 @@ func (d *ConfirmDialog) Show(action ConfirmAction, targetName string) {
 	case ConfirmActionRestartPod:
 		d.title = "Restart Pod"
 		d.message = fmt.Sprintf("Are you sure you want to restart pod '%s'?\n(This will delete the pod; the controller will recreate it)", targetName)
+	case ConfirmActionDeleteDeployment:
+		d.title = "Delete Deployment"
+		d.message = fmt.Sprintf("Are you sure you want to delete deployment '%s'?\n(All associated pods will be terminated)", targetName)
+	case ConfirmActionRestartDeployment:
+		d.title = "Restart Deployment"
+		d.message = fmt.Sprintf("Are you sure you want to restart deployment '%s'?\n(This triggers a rolling restart of all pods)", targetName)
 	default:
 		d.title = "Confirm"
 		d.message = "Are you sure?"

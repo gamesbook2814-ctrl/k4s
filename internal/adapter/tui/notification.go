@@ -14,6 +14,7 @@ const (
 	NotificationSuccess NotificationType = iota
 	NotificationError
 	NotificationInfo
+	NotificationWarning
 )
 
 const notificationDuration = 3 * time.Second
@@ -81,6 +82,9 @@ func (n *Notification) View() string {
 	case NotificationInfo:
 		bgColor = colorPrimary
 		icon = "ℹ"
+	case NotificationWarning:
+		bgColor = colorWarning
+		icon = "⚠"
 	}
 
 	style := lipgloss.NewStyle().

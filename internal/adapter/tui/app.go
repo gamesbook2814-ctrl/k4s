@@ -34,6 +34,11 @@ const (
 	ViewCrictlContainers
 	ViewCrictlLogs
 	ViewNodeInfo
+	ViewDeployments
+	ViewDeploymentDetails
+	ViewServices
+	ViewServiceDetails
+	ViewEvents
 )
 
 // Messages for async operations
@@ -60,6 +65,7 @@ type podDetailsResultMsg struct {
 }
 
 type podRefreshTickMsg struct{}
+type eventRefreshTickMsg struct{}
 
 type podDeleteResultMsg struct {
 	podName string
@@ -117,6 +123,56 @@ type sshCrictlLogStreamEndedMsg struct {
 	err error
 }
 
+// Deployment-related messages
+type deploymentsResultMsg struct {
+	deployments []domain.Deployment
+	err         error
+}
+
+type deploymentDetailsResultMsg struct {
+	deployment *domain.Deployment
+	err        error
+}
+
+type deploymentScaleResultMsg struct {
+	deploymentName string
+	replicas       int32
+	err            error
+}
+
+type deploymentRestartResultMsg struct {
+	deploymentName string
+	err            error
+}
+
+type deploymentDeleteResultMsg struct {
+	deploymentName string
+	err            error
+}
+
+// Service-related messages
+type servicesResultMsg struct {
+	services []domain.Service
+	err      error
+}
+
+type serviceDetailsResultMsg struct {
+	service *domain.Service
+	err     error
+}
+
+// Event-related messages
+type eventsResultMsg struct {
+	events []domain.Event
+	err    error
+}
+
+// Metrics-related messages
+type metricsResultMsg struct {
+	metrics map[string]domain.PodMetrics
+	err     error
+}
+
 // App is the main TUI application model
 type App struct {
 	styles             Styles
@@ -131,6 +187,7 @@ type App struct {
 	podList            list.Model
 	podDetails         PodDetailsModel
 	selectedPodName    string
+	pods               []domain.Pod
 	k8sClient          *k8s.Client
 	clusterInfo        *domain.ClusterInfo
 	connectionStatus   domain.ConnectionStatus
@@ -142,6 +199,7 @@ type App struct {
 	confirmDialog      ConfirmDialog
 	notification       Notification
 	logViewer          LogViewer
+	logSourceView      ViewState // Track where we came from when viewing logs
 	containerSelector  ContainerSelector
 	logStreamCancel    context.CancelFunc
 	logStreamActive    bool
@@ -166,6 +224,30 @@ type App struct {
 
 	// Search input
 	searchInput SearchInput
+
+	// Deployments view
+	deploymentList       list.Model
+	deploymentCount      int
+	deploymentDetails    DeploymentDetailsModel
+	selectedDeployName   string
+
+	// Services view
+	serviceList        list.Model
+	serviceCount       int
+	serviceDetails     ServiceDetailsModel
+	selectedServiceName string
+
+	// Events view
+	eventViewer EventViewer
+
+	// Metrics
+	metricsClient    *k8s.MetricsClient
+	metricsAvailable bool
+	metricsEnabled   bool
+	podMetrics       map[string]domain.PodMetrics
+
+	// Scale dialog
+	scaleDialog ScaleDialog
 }
 
 // NewApp creates a new App instance with configuration
@@ -185,10 +267,14 @@ func NewApp(cfg *domain.Config) *App {
 		notification:      NewNotification(),
 		logViewer:         NewLogViewer(DefaultStyles()),
 		containerSelector: NewContainerSelector(),
-		passphraseInput:   NewPassphraseInput(),
-		crictlLogViewer:   NewCrictlLogViewer(DefaultStyles()),
-		helpScreen:        NewHelpScreen(),
-		searchInput:       NewSearchInput(),
+		passphraseInput:       NewPassphraseInput(),
+		crictlLogViewer:       NewCrictlLogViewer(DefaultStyles()),
+		helpScreen:            NewHelpScreen(),
+		searchInput:           NewSearchInput(),
+		deploymentDetails:     NewDeploymentDetailsModel(DefaultStyles()),
+		serviceDetails:        NewServiceDetailsModel(DefaultStyles()),
+		eventViewer:           NewEventViewer(DefaultStyles()),
+		scaleDialog:           NewScaleDialog(),
 	}
 
 	// If only one kubeconfig, auto-select it
@@ -301,6 +387,13 @@ func (a *App) schedulePodRefresh() tea.Cmd {
 	})
 }
 
+// scheduleEventRefresh returns a command that triggers an event refresh after interval
+func (a *App) scheduleEventRefresh() tea.Cmd {
+	return tea.Tick(podRefreshInterval, func(t time.Time) tea.Msg {
+		return eventRefreshTickMsg{}
+	})
+}
+
 // deletePod returns a command that deletes a pod
 func (a *App) deletePod(podName string) tea.Cmd {
 	return func() tea.Msg {
@@ -324,6 +417,124 @@ func (a *App) restartPod(podName string) tea.Cmd {
 		ctx := context.Background()
 		err := a.k8sClient.DeletePod(ctx, a.k8sClient.CurrentNamespace(), podName)
 		return podRestartResultMsg{podName: podName, err: err}
+	}
+}
+
+// fetchDeployments returns a command that fetches deployments
+func (a *App) fetchDeployments() tea.Cmd {
+	return func() tea.Msg {
+		if a.k8sClient == nil {
+			return deploymentsResultMsg{err: fmt.Errorf("not connected to cluster")}
+		}
+
+		ctx := context.Background()
+		deployments, err := a.k8sClient.GetDeployments(ctx, a.k8sClient.CurrentNamespace())
+		return deploymentsResultMsg{deployments: deployments, err: err}
+	}
+}
+
+// fetchDeploymentDetails returns a command that fetches deployment details
+func (a *App) fetchDeploymentDetails(name string) tea.Cmd {
+	return func() tea.Msg {
+		if a.k8sClient == nil {
+			return deploymentDetailsResultMsg{err: fmt.Errorf("not connected to cluster")}
+		}
+
+		ctx := context.Background()
+		deployment, err := a.k8sClient.GetDeployment(ctx, a.k8sClient.CurrentNamespace(), name)
+		return deploymentDetailsResultMsg{deployment: deployment, err: err}
+	}
+}
+
+// scaleDeployment returns a command that scales a deployment
+func (a *App) scaleDeployment(name string, replicas int32) tea.Cmd {
+	return func() tea.Msg {
+		if a.k8sClient == nil {
+			return deploymentScaleResultMsg{deploymentName: name, err: fmt.Errorf("not connected to cluster")}
+		}
+
+		ctx := context.Background()
+		err := a.k8sClient.ScaleDeployment(ctx, a.k8sClient.CurrentNamespace(), name, replicas)
+		return deploymentScaleResultMsg{deploymentName: name, replicas: replicas, err: err}
+	}
+}
+
+// restartDeployment returns a command that restarts a deployment
+func (a *App) restartDeployment(name string) tea.Cmd {
+	return func() tea.Msg {
+		if a.k8sClient == nil {
+			return deploymentRestartResultMsg{deploymentName: name, err: fmt.Errorf("not connected to cluster")}
+		}
+
+		ctx := context.Background()
+		err := a.k8sClient.RestartDeployment(ctx, a.k8sClient.CurrentNamespace(), name)
+		return deploymentRestartResultMsg{deploymentName: name, err: err}
+	}
+}
+
+// deleteDeployment returns a command that deletes a deployment
+func (a *App) deleteDeployment(name string) tea.Cmd {
+	return func() tea.Msg {
+		if a.k8sClient == nil {
+			return deploymentDeleteResultMsg{deploymentName: name, err: fmt.Errorf("not connected to cluster")}
+		}
+
+		ctx := context.Background()
+		err := a.k8sClient.DeleteDeployment(ctx, a.k8sClient.CurrentNamespace(), name)
+		return deploymentDeleteResultMsg{deploymentName: name, err: err}
+	}
+}
+
+// fetchServices returns a command that fetches services
+func (a *App) fetchServices() tea.Cmd {
+	return func() tea.Msg {
+		if a.k8sClient == nil {
+			return servicesResultMsg{err: fmt.Errorf("not connected to cluster")}
+		}
+
+		ctx := context.Background()
+		services, err := a.k8sClient.GetServices(ctx, a.k8sClient.CurrentNamespace())
+		return servicesResultMsg{services: services, err: err}
+	}
+}
+
+// fetchServiceDetails returns a command that fetches service details
+func (a *App) fetchServiceDetails(name string) tea.Cmd {
+	return func() tea.Msg {
+		if a.k8sClient == nil {
+			return serviceDetailsResultMsg{err: fmt.Errorf("not connected to cluster")}
+		}
+
+		ctx := context.Background()
+		service, err := a.k8sClient.GetService(ctx, a.k8sClient.CurrentNamespace(), name)
+		return serviceDetailsResultMsg{service: service, err: err}
+	}
+}
+
+// fetchEvents returns a command that fetches events
+func (a *App) fetchEvents() tea.Cmd {
+	return func() tea.Msg {
+		if a.k8sClient == nil {
+			return eventsResultMsg{err: fmt.Errorf("not connected to cluster")}
+		}
+
+		ctx := context.Background()
+		// Fetch all events - filtering is done in the viewer for better UX
+		events, err := a.k8sClient.GetEvents(ctx, a.k8sClient.CurrentNamespace())
+		return eventsResultMsg{events: events, err: err}
+	}
+}
+
+// fetchMetrics returns a command that fetches pod metrics
+func (a *App) fetchMetrics() tea.Cmd {
+	return func() tea.Msg {
+		if a.metricsClient == nil {
+			return metricsResultMsg{err: fmt.Errorf("metrics not available")}
+		}
+
+		ctx := context.Background()
+		metrics, err := a.metricsClient.GetPodMetrics(ctx, a.k8sClient.CurrentNamespace())
+		return metricsResultMsg{metrics: metrics, err: err}
 	}
 }
 
@@ -404,6 +615,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.width-4,
 			a.height-12,
 			a.styles,
+			a.metricsEnabled,
+			a.podMetrics,
 		)
 		a.podDetails.SetSize(a.width-4, a.height-12)
 		a.logViewer.SetSize(a.width-4, a.height-14)
@@ -426,6 +639,26 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.passphraseInput.SetWidth(a.width)
 		a.crictlLogViewer.SetSize(a.width-4, a.height-14)
 		a.helpScreen.SetSize(a.width, a.height)
+		// Initialize deployment list
+		a.deploymentList = newDeploymentList(
+			nil,
+			a.width-4,
+			a.height-12,
+			a.styles,
+		)
+		a.deploymentDetails.SetSize(a.width-4, a.height-12)
+		// Initialize service list
+		a.serviceList = newServiceList(
+			nil,
+			a.width-4,
+			a.height-12,
+			a.styles,
+		)
+		a.serviceDetails.SetSize(a.width-4, a.height-12)
+		// Initialize event viewer
+		a.eventViewer.SetSize(a.width-4, a.height-12)
+		// Initialize scale dialog
+		a.scaleDialog.SetWidth(a.width)
 		return a, nil
 
 	case connectResultMsg:
@@ -448,6 +681,17 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Reschedule even if we skip refresh (to check again later)
 		if a.viewState == ViewPods && a.k8sClient != nil {
 			return a, a.schedulePodRefresh()
+		}
+		return a, nil
+
+	case eventRefreshTickMsg:
+		// Only refresh if we're on the events view and following
+		if a.viewState == ViewEvents && a.k8sClient != nil && a.eventViewer.IsFollowing() {
+			return a, tea.Batch(a.fetchEvents(), a.scheduleEventRefresh())
+		}
+		// Reschedule even if we skip refresh (to check again later when following is re-enabled)
+		if a.viewState == ViewEvents && a.k8sClient != nil {
+			return a, a.scheduleEventRefresh()
 		}
 		return a, nil
 
@@ -491,6 +735,37 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sshCrictlLogStreamEndedMsg:
 		return a.handleCrictlLogStreamEnded(msg)
 
+	// Deployment messages
+	case deploymentsResultMsg:
+		return a.handleDeploymentsResult(msg)
+
+	case deploymentDetailsResultMsg:
+		return a.handleDeploymentDetailsResult(msg)
+
+	case deploymentScaleResultMsg:
+		return a.handleDeploymentScaleResult(msg)
+
+	case deploymentRestartResultMsg:
+		return a.handleDeploymentRestartResult(msg)
+
+	case deploymentDeleteResultMsg:
+		return a.handleDeploymentDeleteResult(msg)
+
+	// Service messages
+	case servicesResultMsg:
+		return a.handleServicesResult(msg)
+
+	case serviceDetailsResultMsg:
+		return a.handleServiceDetailsResult(msg)
+
+	// Event messages
+	case eventsResultMsg:
+		return a.handleEventsResult(msg)
+
+	// Metrics messages
+	case metricsResultMsg:
+		return a.handleMetricsResult(msg)
+
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		a.spinner, cmd = a.spinner.Update(msg)
@@ -531,6 +806,26 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		a.crictlLogViewer, cmd = a.crictlLogViewer.Update(msg)
 		return a, cmd
+	case ViewDeployments:
+		var cmd tea.Cmd
+		a.deploymentList, cmd = a.deploymentList.Update(msg)
+		return a, cmd
+	case ViewDeploymentDetails:
+		var cmd tea.Cmd
+		a.deploymentDetails, cmd = a.deploymentDetails.Update(msg)
+		return a, cmd
+	case ViewServices:
+		var cmd tea.Cmd
+		a.serviceList, cmd = a.serviceList.Update(msg)
+		return a, cmd
+	case ViewServiceDetails:
+		var cmd tea.Cmd
+		a.serviceDetails, cmd = a.serviceDetails.Update(msg)
+		return a, cmd
+	case ViewEvents:
+		var cmd tea.Cmd
+		a.eventViewer, cmd = a.eventViewer.Update(msg)
+		return a, cmd
 	}
 
 	return a, nil
@@ -550,6 +845,24 @@ func (a *App) handleConnectResult(msg connectResultMsg) (tea.Model, tea.Cmd) {
 	a.viewState = ViewNamespaces
 	a.err = nil
 	a.loading = true
+
+	// Initialize metrics client (optional - may not be available)
+	if a.selectedConfig != nil {
+		metricsClient, err := k8s.NewMetricsClient(a.selectedConfig.Path)
+		if err == nil {
+			// Check if metrics server is actually available
+			ctx := context.Background()
+			if metricsClient.CheckMetricsAvailable(ctx) {
+				a.metricsClient = metricsClient
+				a.metricsAvailable = true
+				logger.Debug("Metrics server available")
+			} else {
+				logger.Debug("Metrics server not available")
+			}
+		} else {
+			logger.Debug("Failed to create metrics client: %v", err)
+		}
+	}
 
 	// Fetch namespaces after successful connection
 	return a, a.fetchNamespaces()
@@ -578,6 +891,7 @@ func (a *App) handlePodsResult(msg podsResultMsg) (tea.Model, tea.Cmd) {
 	}
 
 	a.podCount = len(msg.pods)
+	a.pods = msg.pods
 
 	// Don't update list while filtering - it breaks the filter state
 	if !a.podList.SettingFilter() && a.podList.FilterState() == list.Unfiltered {
@@ -638,6 +952,159 @@ func (a *App) handlePodRestartResult(msg podRestartResultMsg) (tea.Model, tea.Cm
 	a.viewState = ViewPods
 	a.selectedPodName = ""
 	return a, tea.Batch(notifCmd, a.fetchPods(), a.schedulePodRefresh())
+}
+
+// Deployment result handlers
+func (a *App) handleDeploymentsResult(msg deploymentsResultMsg) (tea.Model, tea.Cmd) {
+	a.loading = false
+
+	if msg.err != nil {
+		a.err = msg.err
+		return a, nil
+	}
+
+	a.deploymentCount = len(msg.deployments)
+	updateDeploymentList(&a.deploymentList, msg.deployments)
+	a.err = nil
+	return a, nil
+}
+
+func (a *App) handleDeploymentDetailsResult(msg deploymentDetailsResultMsg) (tea.Model, tea.Cmd) {
+	a.loading = false
+
+	if msg.err != nil {
+		a.err = msg.err
+		return a, nil
+	}
+
+	a.deploymentDetails.SetDeployment(msg.deployment)
+	a.err = nil
+	return a, nil
+}
+
+func (a *App) handleDeploymentScaleResult(msg deploymentScaleResultMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		notifCmd := a.notification.Show(
+			fmt.Sprintf("Failed to scale deployment: %v", msg.err),
+			NotificationError,
+		)
+		return a, notifCmd
+	}
+
+	notifCmd := a.notification.Show(
+		fmt.Sprintf("Deployment '%s' scaled to %d replicas", msg.deploymentName, msg.replicas),
+		NotificationSuccess,
+	)
+
+	return a, tea.Batch(notifCmd, a.fetchDeployments())
+}
+
+func (a *App) handleDeploymentRestartResult(msg deploymentRestartResultMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		notifCmd := a.notification.Show(
+			fmt.Sprintf("Failed to restart deployment: %v", msg.err),
+			NotificationError,
+		)
+		return a, notifCmd
+	}
+
+	notifCmd := a.notification.Show(
+		fmt.Sprintf("Deployment '%s' restarting...", msg.deploymentName),
+		NotificationSuccess,
+	)
+
+	a.viewState = ViewDeployments
+	a.selectedDeployName = ""
+	return a, tea.Batch(notifCmd, a.fetchDeployments())
+}
+
+func (a *App) handleDeploymentDeleteResult(msg deploymentDeleteResultMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		notifCmd := a.notification.Show(
+			fmt.Sprintf("Failed to delete deployment: %v", msg.err),
+			NotificationError,
+		)
+		return a, notifCmd
+	}
+
+	notifCmd := a.notification.Show(
+		fmt.Sprintf("Deployment '%s' deleted", msg.deploymentName),
+		NotificationSuccess,
+	)
+
+	a.viewState = ViewDeployments
+	a.selectedDeployName = ""
+	return a, tea.Batch(notifCmd, a.fetchDeployments())
+}
+
+// Service result handlers
+func (a *App) handleServicesResult(msg servicesResultMsg) (tea.Model, tea.Cmd) {
+	a.loading = false
+
+	if msg.err != nil {
+		a.err = msg.err
+		return a, nil
+	}
+
+	a.serviceCount = len(msg.services)
+	updateServiceList(&a.serviceList, msg.services)
+	a.err = nil
+	return a, nil
+}
+
+func (a *App) handleServiceDetailsResult(msg serviceDetailsResultMsg) (tea.Model, tea.Cmd) {
+	a.loading = false
+
+	if msg.err != nil {
+		a.err = msg.err
+		return a, nil
+	}
+
+	a.serviceDetails.SetService(msg.service)
+	a.err = nil
+	return a, nil
+}
+
+// Event result handler
+func (a *App) handleEventsResult(msg eventsResultMsg) (tea.Model, tea.Cmd) {
+	a.loading = false
+
+	if msg.err != nil {
+		a.err = msg.err
+		return a, nil
+	}
+
+	a.eventViewer.SetEvents(msg.events)
+	a.err = nil
+	return a, nil
+}
+
+// Metrics result handler
+func (a *App) handleMetricsResult(msg metricsResultMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		// Silently fail - metrics are optional
+		a.podMetrics = nil
+		return a, nil
+	}
+
+	a.podMetrics = msg.metrics
+
+	// Rebuild pod list with new metrics data if metrics are enabled
+	if a.metricsEnabled && a.viewState == ViewPods {
+		a.podList = newPodList(
+			nil,
+			a.podList.Width(),
+			a.podList.Height(),
+			a.styles,
+			a.metricsEnabled,
+			a.podMetrics,
+		)
+		if a.pods != nil {
+			updatePodList(&a.podList, a.pods)
+		}
+	}
+
+	return a, nil
 }
 
 func (a *App) handleContainersResult(msg containersResultMsg) (tea.Model, tea.Cmd) {
@@ -1057,12 +1524,31 @@ func (a *App) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return a, a.deletePod(targetName)
 			case ConfirmActionRestartPod:
 				return a, a.restartPod(targetName)
+			case ConfirmActionDeleteDeployment:
+				return a, a.deleteDeployment(targetName)
+			case ConfirmActionRestartDeployment:
+				return a, a.restartDeployment(targetName)
 			}
 		}
 		if cancelled {
 			a.confirmDialog.Hide()
 		}
 		return a, nil
+	}
+
+	// Handle scale dialog if visible
+	if a.scaleDialog.IsVisible() {
+		confirmed, cancelled, cmd := a.scaleDialog.Update(msg)
+		if confirmed {
+			deployName := a.scaleDialog.DeploymentName()
+			replicas := a.scaleDialog.TargetReplicas()
+			a.scaleDialog.Hide()
+			return a, a.scaleDeployment(deployName, replicas)
+		}
+		if cancelled {
+			a.scaleDialog.Hide()
+		}
+		return a, cmd
 	}
 
 	// Handle help screen if visible
@@ -1235,6 +1721,20 @@ func (a *App) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				a.loading = true
 				return a, a.fetchCrictlLogs()
 			}
+		case ViewDeployments:
+			if item, ok := a.deploymentList.SelectedItem().(deploymentItem); ok {
+				a.selectedDeployName = item.deployment.Name
+				a.viewState = ViewDeploymentDetails
+				a.loading = true
+				return a, a.fetchDeploymentDetails(item.deployment.Name)
+			}
+		case ViewServices:
+			if item, ok := a.serviceList.SelectedItem().(serviceItem); ok {
+				a.selectedServiceName = item.service.Name
+				a.viewState = ViewServiceDetails
+				a.loading = true
+				return a, a.fetchServiceDetails(item.service.Name)
+			}
 		}
 
 	case "r":
@@ -1284,6 +1784,31 @@ func (a *App) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				a.loading = true
 				return a, a.fetchCrictlLogs()
 			}
+		case ViewDeployments:
+			if a.k8sClient != nil {
+				a.loading = true
+				return a, a.fetchDeployments()
+			}
+		case ViewDeploymentDetails:
+			if a.k8sClient != nil && a.selectedDeployName != "" {
+				a.loading = true
+				return a, a.fetchDeploymentDetails(a.selectedDeployName)
+			}
+		case ViewServices:
+			if a.k8sClient != nil {
+				a.loading = true
+				return a, a.fetchServices()
+			}
+		case ViewServiceDetails:
+			if a.k8sClient != nil && a.selectedServiceName != "" {
+				a.loading = true
+				return a, a.fetchServiceDetails(a.selectedServiceName)
+			}
+		case ViewEvents:
+			if a.k8sClient != nil {
+				a.loading = true
+				return a, tea.Batch(a.fetchEvents(), a.scheduleEventRefresh())
+			}
 		}
 
 	case "l":
@@ -1291,6 +1816,7 @@ func (a *App) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if a.viewState == ViewPodDetails && a.selectedPodName != "" {
 			// From pod details - pod already selected
 			logger.Debug("Opening logs from pod details for: %s", a.selectedPodName)
+			a.logSourceView = ViewPodDetails
 			a.loading = true
 			return a, a.fetchContainers(a.selectedPodName)
 		}
@@ -1299,6 +1825,7 @@ func (a *App) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if item, ok := a.podList.SelectedItem().(podItem); ok {
 				a.selectedPodName = item.pod.Name
 				logger.Debug("Opening logs from pods list for: %s", a.selectedPodName)
+				a.logSourceView = ViewPods
 				a.loading = true
 				return a, a.fetchContainers(item.pod.Name)
 			}
@@ -1356,6 +1883,11 @@ func (a *App) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return a, nil
 		}
+		// Toggle follow mode in event viewer
+		if a.viewState == ViewEvents {
+			a.eventViewer.ToggleFollowing()
+			return a, nil
+		}
 
 	case "t":
 		// Toggle timestamps in log viewer
@@ -1378,6 +1910,34 @@ func (a *App) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return a, a.fetchCrictlLogs()
 		}
 
+	case "m":
+		// Toggle metrics display in pod list
+		if a.viewState == ViewPods {
+			if a.metricsClient != nil {
+				a.metricsEnabled = !a.metricsEnabled
+				// Rebuild pod list with new metrics setting
+				a.podList = newPodList(
+					nil,
+					a.podList.Width(),
+					a.podList.Height(),
+					a.styles,
+					a.metricsEnabled,
+					a.podMetrics,
+				)
+				// Restore items
+				if a.pods != nil {
+					updatePodList(&a.podList, a.pods)
+				}
+				// Fetch metrics if enabling
+				if a.metricsEnabled && a.podMetrics == nil {
+					return a, a.fetchMetrics()
+				}
+			} else {
+				a.notification.Show("Metrics not available (metrics-server not installed)", NotificationWarning)
+			}
+			return a, nil
+		}
+
 	case "c":
 		// Change container in log viewer
 		if a.viewState == ViewLogs && len(a.logViewer.Containers()) > 1 {
@@ -1389,6 +1949,34 @@ func (a *App) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Start search in log views
 		if a.viewState == ViewLogs || a.viewState == ViewCrictlLogs {
 			a.searchInput.Show()
+			return a, nil
+		}
+
+	case "s":
+		// Scale deployment
+		if a.viewState == ViewDeployments {
+			if item, ok := a.deploymentList.SelectedItem().(deploymentItem); ok {
+				a.scaleDialog.Show(item.deployment.Name, item.deployment.Replicas)
+				return a, nil
+			}
+		}
+		if a.viewState == ViewDeploymentDetails && a.deploymentDetails.Deployment() != nil {
+			dep := a.deploymentDetails.Deployment()
+			a.scaleDialog.Show(dep.Name, dep.Replicas)
+			return a, nil
+		}
+
+	case "w":
+		// Toggle warnings filter in events view
+		if a.viewState == ViewEvents {
+			a.eventViewer.ToggleWarningsOnly()
+			return a, nil
+		}
+
+	case "k":
+		// Cycle kind filter in events view
+		if a.viewState == ViewEvents {
+			a.eventViewer.CycleKindFilter()
 			return a, nil
 		}
 
@@ -1414,20 +2002,44 @@ func (a *App) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 
-	case "0":
+	case "1":
 		// Go to namespaces view
-		if (a.viewState == ViewMain || a.viewState == ViewPods || a.viewState == ViewPodDetails) && a.connectionStatus == domain.StatusConnected {
+		if a.connectionStatus == domain.StatusConnected && a.viewState != ViewNamespaces {
 			a.viewState = ViewNamespaces
 			a.loading = true
 			return a, a.fetchNamespaces()
 		}
 
-	case "1":
+	case "2":
 		// Go to pods view
-		if (a.viewState == ViewMain || a.viewState == ViewNamespaces || a.viewState == ViewPodDetails) && a.connectionStatus == domain.StatusConnected {
+		if a.connectionStatus == domain.StatusConnected && a.viewState != ViewPods {
 			a.viewState = ViewPods
 			a.loading = true
 			return a, tea.Batch(a.fetchPods(), a.schedulePodRefresh())
+		}
+
+	case "3":
+		// Go to deployments view
+		if a.connectionStatus == domain.StatusConnected && a.viewState != ViewDeployments {
+			a.viewState = ViewDeployments
+			a.loading = true
+			return a, a.fetchDeployments()
+		}
+
+	case "4":
+		// Go to services view
+		if a.connectionStatus == domain.StatusConnected && a.viewState != ViewServices {
+			a.viewState = ViewServices
+			a.loading = true
+			return a, a.fetchServices()
+		}
+
+	case "5":
+		// Go to events view
+		if a.connectionStatus == domain.StatusConnected && a.viewState != ViewEvents {
+			a.viewState = ViewEvents
+			a.loading = true
+			return a, tea.Batch(a.fetchEvents(), a.scheduleEventRefresh())
 		}
 
 	case "9":
@@ -1455,9 +2067,16 @@ func (a *App) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return a, nil
 			}
 		case ViewLogs:
-			// Stop streaming and go back to pod details
+			// Stop streaming and go back to where we came from
 			a.stopLogStream()
 			a.logViewer.Clear()
+			if a.logSourceView == ViewPods {
+				// Came from pods list - go back to pods
+				a.viewState = ViewPods
+				a.selectedPodName = ""
+				return a, tea.Batch(a.fetchPods(), a.schedulePodRefresh())
+			}
+			// Came from pod details - go back to pod details
 			a.viewState = ViewPodDetails
 			a.loading = true
 			return a, a.fetchPodDetails(a.selectedPodName)
@@ -1499,6 +2118,28 @@ func (a *App) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			a.selectedCrictlContainer = nil
 			a.viewState = ViewCrictlContainers
 			return a, nil
+		case ViewDeployments:
+			// Go back to pods
+			a.viewState = ViewPods
+			return a, tea.Batch(a.fetchPods(), a.schedulePodRefresh())
+		case ViewDeploymentDetails:
+			// Go back to deployments
+			a.viewState = ViewDeployments
+			a.selectedDeployName = ""
+			return a, a.fetchDeployments()
+		case ViewServices:
+			// Go back to pods
+			a.viewState = ViewPods
+			return a, tea.Batch(a.fetchPods(), a.schedulePodRefresh())
+		case ViewServiceDetails:
+			// Go back to services
+			a.viewState = ViewServices
+			a.selectedServiceName = ""
+			return a, a.fetchServices()
+		case ViewEvents:
+			// Go back to pods
+			a.viewState = ViewPods
+			return a, tea.Batch(a.fetchPods(), a.schedulePodRefresh())
 		}
 	}
 
@@ -1536,6 +2177,26 @@ func (a *App) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		a.crictlLogViewer, cmd = a.crictlLogViewer.Update(msg)
 		return a, cmd
+	case ViewDeployments:
+		var cmd tea.Cmd
+		a.deploymentList, cmd = a.deploymentList.Update(msg)
+		return a, cmd
+	case ViewDeploymentDetails:
+		var cmd tea.Cmd
+		a.deploymentDetails, cmd = a.deploymentDetails.Update(msg)
+		return a, cmd
+	case ViewServices:
+		var cmd tea.Cmd
+		a.serviceList, cmd = a.serviceList.Update(msg)
+		return a, cmd
+	case ViewServiceDetails:
+		var cmd tea.Cmd
+		a.serviceDetails, cmd = a.serviceDetails.Update(msg)
+		return a, cmd
+	case ViewEvents:
+		var cmd tea.Cmd
+		a.eventViewer, cmd = a.eventViewer.Update(msg)
+		return a, cmd
 	}
 
 	return a, nil
@@ -1571,8 +2232,23 @@ func (a *App) View() string {
 		view = a.renderCrictlContainersView()
 	case ViewCrictlLogs:
 		view = a.renderCrictlLogsView()
+	case ViewDeployments:
+		view = a.renderDeploymentsView()
+	case ViewDeploymentDetails:
+		view = a.renderDeploymentDetailsView()
+	case ViewServices:
+		view = a.renderServicesView()
+	case ViewServiceDetails:
+		view = a.renderServiceDetailsView()
+	case ViewEvents:
+		view = a.renderEventsView()
 	default:
 		view = ""
+	}
+
+	// Overlay scale dialog if visible
+	if a.scaleDialog.IsVisible() {
+		view = a.overlayScaleDialog(view)
 	}
 
 	// Overlay help screen if visible
@@ -1678,16 +2354,27 @@ func (a *App) renderPodsView() string {
 	} else {
 		// Title with pod count
 		title := fmt.Sprintf("Pods (%d)", a.podCount)
+		if a.metricsEnabled {
+			title += " [metrics]"
+		}
 		titleLine := lipgloss.NewStyle().
 			Bold(true).
 			Foreground(colorPrimary).
 			Render(title)
 
-		// Column headers (widths must match delegate: 45 + 7 + 12 + 8 + age)
-		headerLine := lipgloss.NewStyle().
-			Bold(true).
-			Foreground(colorMuted).
-			Render(fmt.Sprintf("  %-45s %-7s %-12s %-8s %s", "NAME", "READY", "STATUS", "RESTARTS", "AGE"))
+		// Column headers (widths must match delegate)
+		var headerLine string
+		if a.metricsEnabled {
+			headerLine = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(colorMuted).
+				Render(fmt.Sprintf("  %-45s %-7s %-12s %-8s %-8s %-10s %s", "NAME", "READY", "STATUS", "RESTARTS", "CPU", "MEMORY", "AGE"))
+		} else {
+			headerLine = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(colorMuted).
+				Render(fmt.Sprintf("  %-45s %-7s %-12s %-8s %s", "NAME", "READY", "STATUS", "RESTARTS", "AGE"))
+		}
 
 		contentStr = titleLine + "\n" + headerLine + "\n" + a.podList.View()
 	}
@@ -1767,9 +2454,11 @@ func (a *App) renderLogsView() string {
 		contentStr = logHeader + "\n" + a.logViewer.View()
 	}
 
+	// Use the same height calculation as the log viewer setup (height-14 for viewport)
+	// Plus 2 lines for log header, so content area is height-12
 	content := a.styles.Content.
 		Width(a.width - 4).
-		Height(a.height - 10).
+		Height(a.height - 12).
 		Render(contentStr)
 
 	footer := a.renderFooter()
@@ -1862,7 +2551,7 @@ func (a *App) renderFooter() string {
 	case ViewConnecting:
 		helpText = "ctrl+c: cancel"
 	case ViewNamespaces:
-		parts := []string{"↑/↓: navigate", "enter: select", "/: filter", "1: pods", "r: refresh"}
+		parts := []string{"↑/↓: navigate", "enter: select", "/: filter", "2: pods", "r: refresh"}
 		if len(a.config.SSHHosts) > 0 {
 			parts = append(parts, "9: ssh")
 		}
@@ -1872,14 +2561,17 @@ func (a *App) renderFooter() string {
 		parts = append(parts, "q: quit")
 		helpText = joinStrings(parts, " • ")
 	case ViewPods:
-		parts := []string{"↑/↓: navigate", "enter: details", "l: logs", "d: delete", "R: restart", "/: filter", "0: ns", "r: refresh"}
+		parts := []string{"↑/↓: navigate", "enter: details", "l: logs", "d: delete", "R: restart", "/: filter", "1: ns", "r: refresh"}
+		if a.metricsClient != nil {
+			parts = append(parts, "m: metrics")
+		}
 		if len(a.config.SSHHosts) > 0 {
 			parts = append(parts, "9: ssh")
 		}
 		parts = append(parts, "esc: back", "q: quit")
 		helpText = joinStrings(parts, " • ")
 	case ViewPodDetails:
-		parts := []string{"↑/↓: scroll", "l: logs", "d: delete", "R: restart", "0: ns", "1: pods", "r: refresh"}
+		parts := []string{"↑/↓: scroll", "l: logs", "d: delete", "R: restart", "1: ns", "2: pods", "r: refresh"}
 		if len(a.config.SSHHosts) > 0 {
 			parts = append(parts, "9: ssh")
 		}
@@ -1893,7 +2585,7 @@ func (a *App) renderFooter() string {
 		parts = append(parts, "esc: back", "q: quit")
 		helpText = joinStrings(parts, " • ")
 	case ViewMain:
-		parts := []string{"0: namespaces", "1: pods"}
+		parts := []string{"1: namespaces", "2: pods"}
 		if len(a.config.KubeConfigs) > 1 || a.connectionStatus == domain.StatusConnected {
 			parts = append(parts, "esc: back")
 		}
@@ -1910,6 +2602,41 @@ func (a *App) renderFooter() string {
 		helpText = "↑/↓: navigate • enter: logs • /: filter • r: refresh • esc: back • q: quit"
 	case ViewCrictlLogs:
 		helpText = "↑/↓/g/G: scroll • f: follow • t: timestamps • r: refresh • esc: back • q: quit"
+	case ViewDeployments:
+		parts := []string{"↑/↓: navigate", "enter: details", "s: scale", "R: restart", "d: delete", "/: filter", "1: ns", "2: pods", "r: refresh"}
+		if len(a.config.SSHHosts) > 0 {
+			parts = append(parts, "9: ssh")
+		}
+		parts = append(parts, "esc: back", "q: quit")
+		helpText = joinStrings(parts, " • ")
+	case ViewDeploymentDetails:
+		parts := []string{"↑/↓: scroll", "s: scale", "R: restart", "d: delete", "1: ns", "2: pods", "3: deploys", "r: refresh"}
+		if len(a.config.SSHHosts) > 0 {
+			parts = append(parts, "9: ssh")
+		}
+		parts = append(parts, "esc: back", "q: quit")
+		helpText = joinStrings(parts, " • ")
+	case ViewServices:
+		parts := []string{"↑/↓: navigate", "enter: details", "/: filter", "1: ns", "2: pods", "3: deploys", "r: refresh"}
+		if len(a.config.SSHHosts) > 0 {
+			parts = append(parts, "9: ssh")
+		}
+		parts = append(parts, "esc: back", "q: quit")
+		helpText = joinStrings(parts, " • ")
+	case ViewServiceDetails:
+		parts := []string{"↑/↓: scroll", "1: ns", "2: pods", "3: deploys", "4: svcs", "r: refresh"}
+		if len(a.config.SSHHosts) > 0 {
+			parts = append(parts, "9: ssh")
+		}
+		parts = append(parts, "esc: back", "q: quit")
+		helpText = joinStrings(parts, " • ")
+	case ViewEvents:
+		parts := []string{"↑/↓/g/G: scroll", "f: follow", "w: warnings", "k: kind", "r: refresh", "1: ns", "2: pods"}
+		if len(a.config.SSHHosts) > 0 {
+			parts = append(parts, "9: ssh")
+		}
+		parts = append(parts, "esc: back", "q: quit")
+		helpText = joinStrings(parts, " • ")
 	}
 
 	// Show notification if visible
@@ -2008,6 +2735,156 @@ func (a *App) overlayDialog(view string) string {
 		lipgloss.WithWhitespaceChars(" "),
 		lipgloss.WithWhitespaceForeground(lipgloss.Color("#1a1a1a")),
 	)
+}
+
+// overlayScaleDialog overlays the scale dialog centered on screen
+func (a *App) overlayScaleDialog(view string) string {
+	dialog := a.scaleDialog.View()
+	if dialog == "" {
+		return view
+	}
+
+	return lipgloss.Place(
+		a.width,
+		a.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		dialog,
+		lipgloss.WithWhitespaceChars(" "),
+		lipgloss.WithWhitespaceForeground(lipgloss.Color("#1a1a1a")),
+	)
+}
+
+// Deployments view
+func (a *App) renderDeploymentsView() string {
+	header := a.renderHeader()
+
+	var contentStr string
+	if a.loading && a.deploymentCount == 0 {
+		contentStr = fmt.Sprintf("%s Loading deployments...", a.spinner.View())
+	} else if a.err != nil {
+		contentStr = a.renderError()
+	} else {
+		title := fmt.Sprintf("Deployments (%d)", a.deploymentCount)
+		titleLine := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(colorPrimary).
+			Render(title)
+
+		headerLine := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(colorMuted).
+			Render(fmt.Sprintf("  %-40s %-10s %-10s %-10s %s", "NAME", "READY", "UP-TO-DATE", "AVAILABLE", "AGE"))
+
+		contentStr = titleLine + "\n" + headerLine + "\n" + a.deploymentList.View()
+	}
+
+	content := a.styles.Content.
+		Width(a.width - 4).
+		Height(a.height - 12).
+		Render(contentStr)
+
+	footer := a.renderFooter()
+	return lipgloss.JoinVertical(lipgloss.Left, header, content, footer)
+}
+
+func (a *App) renderDeploymentDetailsView() string {
+	header := a.renderHeader()
+
+	var contentStr string
+	if a.loading {
+		contentStr = fmt.Sprintf("%s Loading deployment details...", a.spinner.View())
+	} else if a.err != nil {
+		contentStr = a.renderError()
+	} else {
+		contentStr = a.deploymentDetails.View()
+	}
+
+	content := a.styles.Content.
+		Width(a.width - 4).
+		Height(a.height - 12).
+		Render(contentStr)
+
+	footer := a.renderFooter()
+	return lipgloss.JoinVertical(lipgloss.Left, header, content, footer)
+}
+
+// Services view
+func (a *App) renderServicesView() string {
+	header := a.renderHeader()
+
+	var contentStr string
+	if a.loading && a.serviceCount == 0 {
+		contentStr = fmt.Sprintf("%s Loading services...", a.spinner.View())
+	} else if a.err != nil {
+		contentStr = a.renderError()
+	} else {
+		title := fmt.Sprintf("Services (%d)", a.serviceCount)
+		titleLine := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(colorPrimary).
+			Render(title)
+
+		headerLine := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(colorMuted).
+			Render(fmt.Sprintf("  %-30s %-14s %-16s %-20s %-20s %s", "NAME", "TYPE", "CLUSTER-IP", "EXTERNAL-IP", "PORTS", "AGE"))
+
+		contentStr = titleLine + "\n" + headerLine + "\n" + a.serviceList.View()
+	}
+
+	content := a.styles.Content.
+		Width(a.width - 4).
+		Height(a.height - 12).
+		Render(contentStr)
+
+	footer := a.renderFooter()
+	return lipgloss.JoinVertical(lipgloss.Left, header, content, footer)
+}
+
+func (a *App) renderServiceDetailsView() string {
+	header := a.renderHeader()
+
+	var contentStr string
+	if a.loading {
+		contentStr = fmt.Sprintf("%s Loading service details...", a.spinner.View())
+	} else if a.err != nil {
+		contentStr = a.renderError()
+	} else {
+		contentStr = a.serviceDetails.View()
+	}
+
+	content := a.styles.Content.
+		Width(a.width - 4).
+		Height(a.height - 12).
+		Render(contentStr)
+
+	footer := a.renderFooter()
+	return lipgloss.JoinVertical(lipgloss.Left, header, content, footer)
+}
+
+// Events view
+func (a *App) renderEventsView() string {
+	header := a.renderHeader()
+
+	var contentStr string
+	if a.loading && a.eventViewer.TotalEvents() == 0 {
+		contentStr = fmt.Sprintf("%s Loading events...", a.spinner.View())
+	} else if a.err != nil {
+		contentStr = a.renderError()
+	} else {
+		// Event viewer header with indicators
+		titleLine := a.eventViewer.RenderHeader()
+		contentStr = titleLine + "\n" + a.eventViewer.View()
+	}
+
+	content := a.styles.Content.
+		Width(a.width - 4).
+		Height(a.height - 12).
+		Render(contentStr)
+
+	footer := a.renderFooter()
+	return lipgloss.JoinVertical(lipgloss.Left, header, content, footer)
 }
 
 // SSH-related render functions

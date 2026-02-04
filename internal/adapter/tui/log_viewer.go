@@ -2,12 +2,16 @@ package tui
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
+
+// ansiRegex matches ANSI escape sequences
+var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
 // LogViewer is the model for viewing pod logs
 type LogViewer struct {
@@ -249,19 +253,84 @@ func (l *LogViewer) updateContent() {
 	query := strings.ToLower(l.searchQuery)
 
 	for i, line := range l.logs {
-		// Apply search highlighting if searching
-		if query != "" && strings.Contains(strings.ToLower(line), query) {
-			// Highlight matching text
-			line = l.highlightSearch(line, query)
+		// Wrap long lines using visible width (ignoring ANSI codes)
+		if l.width > 0 && visibleWidth(line) > l.width {
+			wrappedLines := l.wrapLine(line, l.width)
+			for j, wrappedLine := range strings.Split(wrappedLines, "\n") {
+				// Apply search highlighting if searching
+				if query != "" && strings.Contains(strings.ToLower(wrappedLine), query) {
+					wrappedLine = l.highlightSearch(wrappedLine, query)
+				}
+				if j > 0 {
+					sb.WriteString("\n")
+				}
+				sb.WriteString(wrappedLine)
+			}
+		} else {
+			// Apply search highlighting if searching
+			if query != "" && strings.Contains(strings.ToLower(line), query) {
+				line = l.highlightSearch(line, query)
+			}
+			sb.WriteString(line)
 		}
-
-		sb.WriteString(line)
 		if i < len(l.logs)-1 {
 			sb.WriteString("\n")
 		}
 	}
 
 	l.viewport.SetContent(sb.String())
+}
+
+// visibleWidth returns the visible width of a string, ignoring ANSI escape codes
+func visibleWidth(s string) int {
+	return len(ansiRegex.ReplaceAllString(s, ""))
+}
+
+// wrapLine wraps a line to fit within the specified width, preserving ANSI codes
+func (l *LogViewer) wrapLine(line string, width int) string {
+	if visibleWidth(line) <= width {
+		return line
+	}
+
+	var result strings.Builder
+	var currentLine strings.Builder
+	currentWidth := 0
+	i := 0
+
+	for i < len(line) {
+		// Check if we're at an ANSI escape sequence
+		if line[i] == '\x1b' {
+			// Find the end of the ANSI sequence
+			match := ansiRegex.FindStringIndex(line[i:])
+			if match != nil && match[0] == 0 {
+				// Write the ANSI sequence without counting its width
+				seq := line[i : i+match[1]]
+				currentLine.WriteString(seq)
+				i += match[1]
+				continue
+			}
+		}
+
+		// Regular character
+		if currentWidth >= width {
+			// Start a new line
+			result.WriteString(currentLine.String())
+			result.WriteString("\n")
+			currentLine.Reset()
+			currentWidth = 0
+		}
+
+		currentLine.WriteByte(line[i])
+		currentWidth++
+		i++
+	}
+
+	// Write remaining content
+	if currentLine.Len() > 0 {
+		result.WriteString(currentLine.String())
+	}
+
+	return result.String()
 }
 
 func (l *LogViewer) highlightSearch(line, query string) string {
