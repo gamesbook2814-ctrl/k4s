@@ -34,3 +34,6 @@ Thumbs.db
 
 # Claude
 .claude/
+
+# Preview assets (generated)
+preview/
