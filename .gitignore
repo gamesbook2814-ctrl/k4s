@@ -31,3 +31,6 @@ Thumbs.db
 
 # Local config (user-specific)
 .k4s/
+
+# Claude
+.claude/
