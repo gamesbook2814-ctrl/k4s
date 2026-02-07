@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="440" viewBox="0 0 880 440">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700');
+      text { font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace; font-size: 12px; }
+    </style>
+  </defs>
+  <!-- Window chrome -->
+  <rect width="880" height="440" rx="10" fill="#0d1117"/>
+  <rect width="880" height="40" rx="10" fill="#161b22"/>
+  <rect y="30" width="880" height="10" fill="#161b22"/>
+  <line x1="0" y1="40" x2="880" y2="40" stroke="#333" stroke-width="1"/>
+  <circle cx="22" cy="20" r="6" fill="#FF5F56"/>
+  <circle cx="42" cy="20" r="6" fill="#FFBD2E"/>
+  <circle cx="62" cy="20" r="6" fill="#27C93F"/>
+  <text x="440" y="25" text-anchor="middle" fill="#626262" font-size="12">k4s ~ cluster: production</text>
+
+  <!-- View title: Pods (N) [metrics] -->
+  <text x="30" y="74" fill="#7D56F4" font-weight="bold" font-size="14">Pods (7) <tspan fill="#626262" font-weight="normal" font-size="11">[metrics]</tspan></text>
+  <!-- Separator -->
+  <text x="30" y="92" fill="#333">───────────────────────────────────────────────────────────────────────────────</text>
+  <!-- Column headers: %-45s %-7s %-12s %-8s %-10s %s -->
+  <text x="42" y="112" fill="#626262" font-size="11">  NAME                                          READY  STATUS       CPU     MEMORY     AGE</text>
+
+  <!-- Row 1 -->
+  <text x="42" y="134" font-size="12">
+    <tspan fill="#E0E0E0">  coredns-d76bd69b-xk2j7                        </tspan>
+    <tspan fill="#73D216">1/1    </tspan>
+    <tspan fill="#73D216">Running      </tspan>
+    <tspan fill="#626262">5m      </tspan>
+    <tspan fill="#626262">24Mi       </tspan>
+    <tspan fill="#626262">45d</tspan>
+  </text>
+
+  <!-- Row 2 -->
+  <text x="42" y="155" font-size="12">
+    <tspan fill="#E0E0E0">  local-path-provisioner-6f8                     </tspan>
+    <tspan fill="#73D216">1/1    </tspan>
+    <tspan fill="#73D216">Running      </tspan>
+    <tspan fill="#626262">2m      </tspan>
+    <tspan fill="#626262">18Mi       </tspan>
+    <tspan fill="#626262">45d</tspan>
+  </text>
+
+  <!-- Row 3 - SELECTED -->
+  <rect x="22" y="162" width="654" height="20" rx="2" fill="#2a2550"/>
+  <text x="30" y="176" fill="#7D56F4" font-weight="bold" font-size="13">▌</text>
+  <text x="42" y="176" font-size="12">
+    <tspan fill="#E0E0E0" font-weight="bold"> nginx-deployment-7c5ddbdf54                    </tspan>
+    <tspan fill="#73D216">2/2    </tspan>
+    <tspan fill="#73D216">Running      </tspan>
+    <tspan fill="#626262">15m     </tspan>
+    <tspan fill="#626262">128Mi      </tspan>
+    <tspan fill="#626262">12d</tspan>
+  </text>
+
+  <!-- Row 4 -->
+  <text x="42" y="197" font-size="12">
+    <tspan fill="#E0E0E0">  nginx-deployment-7c5ddbdf55                    </tspan>
+    <tspan fill="#73D216">2/2    </tspan>
+    <tspan fill="#73D216">Running      </tspan>
+    <tspan fill="#626262">12m     </tspan>
+    <tspan fill="#626262">96Mi       </tspan>
+    <tspan fill="#626262">12d</tspan>
+  </text>
+
+  <!-- Row 5 - Pending -->
+  <text x="42" y="218" font-size="12">
+    <tspan fill="#E0E0E0">  redis-master-0                                 </tspan>
+    <tspan fill="#F5A623">0/1    </tspan>
+    <tspan fill="#F5A623">Pending      </tspan>
+    <tspan fill="#444">-       </tspan>
+    <tspan fill="#444">-          </tspan>
+    <tspan fill="#626262">2h</tspan>
+  </text>
+
+  <!-- Row 6 -->
+  <text x="42" y="239" font-size="12">
+    <tspan fill="#E0E0E0">  metrics-server-6d484c746                      </tspan>
+    <tspan fill="#73D216">1/1    </tspan>
+    <tspan fill="#73D216">Running      </tspan>
+    <tspan fill="#626262">3m      </tspan>
+    <tspan fill="#626262">42Mi       </tspan>
+    <tspan fill="#626262">30d</tspan>
+  </text>
+
+  <!-- Row 7 -->
+  <text x="42" y="260" font-size="12">
+    <tspan fill="#E0E0E0">  traefik-df4ff85d6-9xbr2                       </tspan>
+    <tspan fill="#73D216">1/1    </tspan>
+    <tspan fill="#73D216">Running      </tspan>
+    <tspan fill="#626262">8m      </tspan>
+    <tspan fill="#626262">64Mi       </tspan>
+    <tspan fill="#626262">45d</tspan>
+  </text>
+
+  <!-- Footer separator -->
+  <text x="30" y="362" fill="#333">───────────────────────────────────────────────────────────────────────────────</text>
+  <!-- Footer shortcuts line 1 -->
+  <text x="30" y="384" font-size="11">
+    <tspan fill="#626262" font-weight="bold">↑/↓</tspan><tspan fill="#444"> navigate</tspan>
+    <tspan fill="#333"> · </tspan>
+    <tspan fill="#626262" font-weight="bold">enter</tspan><tspan fill="#444"> details</tspan>
+    <tspan fill="#333"> · </tspan>
+    <tspan fill="#626262" font-weight="bold">l</tspan><tspan fill="#444"> logs</tspan>
+    <tspan fill="#333"> · </tspan>
+    <tspan fill="#626262" font-weight="bold">L</tspan><tspan fill="#444"> multi-log</tspan>
+    <tspan fill="#333"> · </tspan>
+    <tspan fill="#626262" font-weight="bold">d</tspan><tspan fill="#444"> delete</tspan>
+    <tspan fill="#333"> · </tspan>
+    <tspan fill="#626262" font-weight="bold">R</tspan><tspan fill="#444"> restart</tspan>
+    <tspan fill="#333"> · </tspan>
+    <tspan fill="#626262" font-weight="bold">/</tspan><tspan fill="#444"> filter</tspan>
+    <tspan fill="#333"> · </tspan>
+    <tspan fill="#626262" font-weight="bold">r</tspan><tspan fill="#444"> refresh</tspan>
+    <tspan fill="#333"> · </tspan>
+    <tspan fill="#626262" font-weight="bold">esc</tspan><tspan fill="#444"> back</tspan>
+    <tspan fill="#333"> · </tspan>
+    <tspan fill="#626262" font-weight="bold">q</tspan><tspan fill="#444"> quit</tspan>
+  </text>
+
+  <!-- Sidebar border -->
+  <line x1="690" y1="52" x2="690" y2="410" stroke="#333" stroke-width="1"/>
+
+  <!-- Sidebar -->
+  <text x="706" y="72" fill="#AD58F7" font-size="10">╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱</text>
+  <text x="774" y="102" text-anchor="middle" fill="#7D56F4" font-size="28" font-weight="bold" letter-spacing="4">K4S</text>
+  <text x="706" y="116" fill="#AD58F7" font-size="10">╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱</text>
+  <text x="706" y="138" fill="#626262" font-size="10">Kubernetes TUI for K3s</text>
+
+  <text x="706" y="164" font-size="11"><tspan fill="#73D216">◉</tspan><tspan fill="#626262"> Connected</tspan></text>
+  <text x="720" y="182" fill="#E0E0E0" font-size="11">production</text>
+  <text x="720" y="200" fill="#626262" font-size="11">kube-system</text>
+  <text x="720" y="218" fill="#444" font-size="10">~/.kube/prod.yaml</text>
+
+  <text x="706" y="244" fill="#333" font-size="10">──────────────────────</text>
+  <text x="706" y="262" fill="#626262" font-size="10">Navigation</text>
+  <text x="720" y="284" fill="#626262" font-size="11">1 Namespaces</text>
+  <text x="706" y="302" fill="#7D56F4" font-size="11" font-weight="bold">▸ 2 Pods</text>
+  <text x="720" y="320" fill="#626262" font-size="11">3 Deployments</text>
+  <text x="720" y="338" fill="#626262" font-size="11">4 Services</text>
+  <text x="720" y="356" fill="#626262" font-size="11">5 Events</text>
+  <text x="720" y="374" fill="#444" font-size="11">9 SSH</text>
+</svg>

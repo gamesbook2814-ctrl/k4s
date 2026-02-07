@@ -70,7 +70,7 @@ Cluster-wide events in log-style format.
 - Auto-follow mode (`f`)
 - Filter warnings only (`w`)
 - Filter by resource kind (`k`)
-- Color-coded by event type (Normal=blue, Warning=yellow)
+- Color-coded by event type (Normal=muted, Warning=red)
 
 ## Log Viewer (`l`)
 
@@ -103,6 +103,29 @@ View streaming logs from multiple pods simultaneously.
 ==> my-app-abc/app <==
 2026-02-06 INFO Request received GET /health
 ```
+
+## UI Layout (v0.3.0)
+
+### Sidebar
+All connected views display a right sidebar panel (~25% width) containing:
+- ASCII art K4S logo with diagonal stripe accents
+- Cluster connection status with `◉`/`○` indicators
+- Active cluster name, namespace, and kubeconfig path
+- Navigation menu with `▸` active view indicator
+- Auto-hides on narrow terminals (<90 columns)
+
+### Crush-Inspired Theme
+Color palette based on Crush design language:
+- Primary purple (`#7D56F4`) for active elements and accents
+- Accent purple (`#AD58F7`) for logo stripes
+- Selection highlight: `▌` thick left bar with dark purple background (`#2a2550`)
+- Text hierarchy: bright (`#E0E0E0`), muted (`#626262`), subtle (`#444444`), dim (`#333333`)
+
+### Transparent Dialogs
+All dialogs (confirm, scale, container select, pod multi-select, help) float over visible content instead of blanking the background.
+
+### Footer
+Crush-style format: `key action · key action` with thin `─` separator line above.
 
 ## SSH Hosts View (`9`)
 

@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="440" viewBox="0 0 880 440">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700');
+      text { font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace; font-size: 12px; }
+    </style>
+  </defs>
+  <!-- Window chrome -->
+  <rect width="880" height="440" rx="10" fill="#0d1117"/>
+  <rect width="880" height="40" rx="10" fill="#161b22"/>
+  <rect y="30" width="880" height="10" fill="#161b22"/>
+  <line x1="0" y1="40" x2="880" y2="40" stroke="#333" stroke-width="1"/>
+  <circle cx="22" cy="20" r="6" fill="#FF5F56"/>
+  <circle cx="42" cy="20" r="6" fill="#FFBD2E"/>
+  <circle cx="62" cy="20" r="6" fill="#27C93F"/>
+  <text x="440" y="25" text-anchor="middle" fill="#626262" font-size="12">k4s ~ cluster: production</text>
+
+  <!-- View title -->
+  <text x="30" y="74" fill="#7D56F4" font-weight="bold" font-size="14">Namespaces (6)</text>
+  <!-- Separator -->
+  <text x="30" y="92" fill="#333">───────────────────────────────────────────────────────────────────────────────</text>
+  <!-- Column headers -->
+  <text x="42" y="112" fill="#626262" font-size="11">
+    <tspan>NAME                                          </tspan>
+    <tspan>STATUS       </tspan>
+    <tspan>AGE</tspan>
+  </text>
+
+  <!-- Row 1 -->
+  <text x="42" y="134" fill="#E0E0E0">  default                                       <tspan fill="#73D216">Active</tspan>       <tspan fill="#626262">45d</tspan></text>
+
+  <!-- Row 2 - selected -->
+  <rect x="22" y="140" width="654" height="20" rx="2" fill="#2a2550"/>
+  <text x="30" y="155" fill="#7D56F4" font-weight="bold" font-size="13">▌</text>
+  <text x="42" y="155" fill="#E0E0E0" font-weight="bold"> kube-system                                    <tspan fill="#73D216" font-weight="normal">Active</tspan>       <tspan fill="#626262" font-weight="normal">45d</tspan></text>
+
+  <!-- Row 3 -->
+  <text x="42" y="176" fill="#E0E0E0">  kube-public                                    <tspan fill="#73D216">Active</tspan>       <tspan fill="#626262">45d</tspan></text>
+
+  <!-- Row 4 -->
+  <text x="42" y="197" fill="#E0E0E0">  kube-node-lease                                <tspan fill="#73D216">Active</tspan>       <tspan fill="#626262">45d</tspan></text>
+
+  <!-- Row 5 -->
+  <text x="42" y="218" fill="#E0E0E0">  monitoring                                     <tspan fill="#73D216">Active</tspan>       <tspan fill="#626262">12d</tspan></text>
+
+  <!-- Row 6 -->
+  <text x="42" y="239" fill="#E0E0E0">  ingress-nginx                                  <tspan fill="#73D216">Active</tspan>        <tspan fill="#626262">8d</tspan></text>
+
+  <!-- Footer separator -->
+  <text x="30" y="392" fill="#333">───────────────────────────────────────────────────────────────────────────────</text>
+  <!-- Footer shortcuts -->
+  <text x="30" y="414" font-size="11">
+    <tspan fill="#626262" font-weight="bold">↑/↓</tspan><tspan fill="#444"> navigate</tspan>
+    <tspan fill="#333"> · </tspan>
+    <tspan fill="#626262" font-weight="bold">enter</tspan><tspan fill="#444"> select</tspan>
+    <tspan fill="#333"> · </tspan>
+    <tspan fill="#626262" font-weight="bold">/</tspan><tspan fill="#444"> filter</tspan>
+    <tspan fill="#333"> · </tspan>
+    <tspan fill="#626262" font-weight="bold">2</tspan><tspan fill="#444"> pods</tspan>
+    <tspan fill="#333"> · </tspan>
+    <tspan fill="#626262" font-weight="bold">r</tspan><tspan fill="#444"> refresh</tspan>
+    <tspan fill="#333"> · </tspan>
+    <tspan fill="#626262" font-weight="bold">esc</tspan><tspan fill="#444"> back</tspan>
+    <tspan fill="#333"> · </tspan>
+    <tspan fill="#626262" font-weight="bold">q</tspan><tspan fill="#444"> quit</tspan>
+  </text>
+
+  <!-- Sidebar border -->
+  <line x1="690" y1="52" x2="690" y2="410" stroke="#333" stroke-width="1"/>
+
+  <!-- Sidebar -->
+  <text x="706" y="72" fill="#AD58F7" font-size="10">╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱</text>
+  <text x="774" y="102" text-anchor="middle" fill="#7D56F4" font-size="28" font-weight="bold" letter-spacing="4">K4S</text>
+  <text x="706" y="116" fill="#AD58F7" font-size="10">╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱</text>
+  <text x="706" y="138" fill="#626262" font-size="10">Kubernetes TUI for K3s</text>
+
+  <text x="706" y="164" font-size="11"><tspan fill="#73D216">◉</tspan><tspan fill="#626262"> Connected</tspan></text>
+  <text x="720" y="182" fill="#E0E0E0" font-size="11">production</text>
+  <text x="720" y="200" fill="#626262" font-size="11">kube-system</text>
+  <text x="720" y="218" fill="#444" font-size="10">~/.kube/prod.yaml</text>
+
+  <text x="706" y="244" fill="#333" font-size="10">──────────────────────</text>
+  <text x="706" y="262" fill="#626262" font-size="10">Navigation</text>
+  <text x="706" y="284" fill="#7D56F4" font-size="11" font-weight="bold">▸ 1 Namespaces</text>
+  <text x="720" y="302" fill="#626262" font-size="11">2 Pods</text>
+  <text x="720" y="320" fill="#626262" font-size="11">3 Deployments</text>
+  <text x="720" y="338" fill="#626262" font-size="11">4 Services</text>
+  <text x="720" y="356" fill="#626262" font-size="11">5 Events</text>
+  <text x="720" y="374" fill="#444" font-size="11">9 SSH</text>
+</svg>
